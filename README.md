@@ -1,382 +1,321 @@
-Latin-to-Kannada Transliteration System using Deep Learning
-A character-level sequence-to-sequence neural network implementation for transliterating Latin script to Kannada script using PyTorch. This project demonstrates the application of encoder-decoder architecture with GRU (Gated Recurrent Units) for the transliteration task.​
+# English to Kannada Transliteration using Seq2Seq Model
 
-Overview
-This system converts romanized Kannada text (written in Latin script) to native Kannada script using deep learning techniques. The model learns character-level mappings between the two writing systems, enabling accurate phonetic conversion without relying on rule-based approaches.​
+A deep learning project implementing sequence-to-sequence (Seq2Seq) architecture with GRU cells for transliterating English (Latin script) text to Kannada script. This character-level model learns the mapping between Latin characters and Kannada Unicode characters.
 
-Key Features
-Character-level processing: Operates at the granular character level for precise transliteration
+## Table of Contents
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Dataset](#dataset)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Model Details](#model-details)
+- [Training Process](#training-process)
+- [Results](#results)
+- [Approach and Methodology](#approach-and-methodology)
+- [Limitations and Future Work](#limitations-and-future-work)
 
-Sequence-to-sequence architecture: Implements encoder-decoder framework with attention-like mechanisms
+## Overview
 
-Flexible RNN cells: Supports GRU and LSTM cell types with configurable architecture
+Transliteration is the process of converting text from one script to another while preserving pronunciation. This project focuses on converting English romanized text (e.g., "namaskara") to Kannada script (ನಮಸ್ಕಾರ). Unlike translation which changes meaning, transliteration maintains the phonetic representation across different writing systems.
 
-Teacher forcing: Utilizes teacher forcing during training for faster convergence
+This implementation uses a character-level Seq2Seq model with GRU (Gated Recurrent Unit) cells, which is particularly effective for handling variable-length sequences and capturing the sequential dependencies between characters.
 
-GPU acceleration: Optimized for CUDA-enabled GPUs with fallback to CPU
+## Architecture
 
-Robust vocabulary handling: Custom vocabulary builder with special token support
+### Model Components
 
-Production-ready inference: Includes complete inference pipeline for real-world deployment
+1. **Encoder**
+   - Embeds input Latin characters into dense vectors
+   - Processes the sequence through multiple GRU layers
+   - Generates a context vector (hidden state) representing the entire input
 
-Architecture
-Model Components
-The system comprises three primary neural network components working in tandem:​
+2. **Decoder**
+   - Takes the encoder's context vector as initial state
+   - Generates Kannada characters one at a time
+   - Uses teacher forcing during training for faster convergence
+   - Implements autoregressive generation during inference
 
-1. Encoder
-The encoder processes the input Latin character sequence and compresses it into a fixed-dimensional hidden state representation.​
+3. **Seq2Seq Wrapper**
+   - Coordinates encoder and decoder operations
+   - Manages teacher forcing ratio
+   - Handles batch processing efficiently
 
-Embedding layer: Converts character indices to dense vector representations (256 dimensions)
+### Architecture Diagram
+```
+Input: "namaskara"
+    ↓
+[Embedding Layer] → [GRU Layers] → [Context Vector]
+                                          ↓
+                                    [GRU Layers] → [Linear Layer]
+                                          ↓
+Output: "ನಮಸ್ಕಾರ"
+```
 
-RNN layers: 2-layer GRU with 512 hidden units per layer
+## Dataset
 
-Dropout regularization: 50% dropout applied between layers to prevent overfitting
+The model is trained on three CSV files:
+- `kan_train.csv` - Training data
+- `kan_valid.csv` - Validation data
+- `kan_test.csv` - Testing data
 
-Output: Compressed context vector capturing input sequence semantics
+Each file contains two columns:
+- **Latin**: Romanized Kannada words (e.g., "namaskara")
+- **Native**: Kannada Unicode text (e.g., "ನಮಸ್ಕಾರ")
 
-2. Decoder
-The decoder generates the target Kannada character sequence one character at a time using the encoder's context.​
+### Vocabulary Statistics
+- **Source (Latin) Vocabulary Size**: 30 characters
+- **Target (Kannada) Vocabulary Size**: 65 characters
+- Special tokens: `<pad>`, `<sos>`, `<eos>`, `<unk>`
 
-Embedding layer: 256-dimensional character embeddings for Kannada script
+## Requirements
 
-RNN layers: 2-layer GRU matching encoder architecture (512 hidden units)
+```
+torch>=1.9.0
+pandas>=1.3.0
+numpy>=1.21.0
+tqdm>=4.62.0
+```
 
-Dropout regularization: 50% dropout for robustness
+## Installation
 
-Output projection: Linear layer mapping hidden states to vocabulary probabilities
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/kannada-transliteration.git
+cd kannada-transliteration
+```
 
-3. Seq2Seq Wrapper
-Orchestrates the encoder-decoder interaction during training and inference.​
+2. Install dependencies:
+```bash
+pip install torch pandas numpy tqdm
+```
 
-Teacher forcing: Randomly uses ground truth vs. predicted tokens (50% probability)
+3. Ensure dataset files are in the project directory:
+```
+kan_train.csv
+kan_valid.csv
+kan_test.csv
+```
 
-Greedy decoding: Selects highest probability token at each timestep
+## Usage
 
-Dynamic sequence generation: Produces variable-length outputs based on EOS token
+### Training the Model
 
-Architecture Specifications
-text
-Input Vocabulary Size: 30 characters (Latin alphabet + special tokens)
-Output Vocabulary Size: 65 characters (Kannada script + special tokens)
-Embedding Dimensions: 256 (both encoder and decoder)
-Hidden State Dimensions: 512
-Number of Layers: 2
-RNN Cell Type: GRU
-Total Parameters: 5,574,977 trainable parameters
-Dataset Structure
-The system requires three CSV files for training, validation, and testing:​
-
-kan_train.csv: Training data pairs (Latin, Kannada)
-
-kan_valid.csv: Validation data for hyperparameter tuning
-
-kan_test.csv: Test set for final evaluation
-
-Data Format
-Each CSV file contains two columns without headers:​
-
-text
-latin,native
-namaskara,ನಮಸ್ಕಾರ
-dhanyavada,ಧನ್ಯವಾದ
-kannada,ಕನ್ನಡ
-Special Tokens
-The vocabulary system incorporates four special tokens:​
-
-<PAD>: Padding token for batch processing
-
-<SOS>: Start-of-sequence marker
-
-<EOS>: End-of-sequence marker
-
-<UNK>: Unknown character placeholder
-
-Installation
-Prerequisites
-bash
-Python 3.7+
-CUDA 10.2+ (for GPU acceleration)
-Required Dependencies
-bash
-pip install torch torchvision torchaudio
-pip install pandas numpy tqdm
-Environment Setup
-python
-# Set random seeds for reproducibility
-import random
-import numpy as np
-import torch
-
-SEED = 1234
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed(SEED)
-torch.backends.cudnn.deterministic = True
-Usage
-Training the Model
-The training process follows these sequential steps:​
-
-1. Data Loading and Vocabulary Building
-python
-# Load datasets
-train_df = pd.read_csv('kan_train.csv', header=None, names=['latin', 'native'])
-valid_df = pd.read_csv('kan_valid.csv', header=None, names=['latin', 'native'])
-test_df = pd.read_csv('kan_test.csv', header=None, names=['latin', 'native'])
-
-# Build vocabularies
-source_vocab = Vocabulary('latin')
-target_vocab = Vocabulary('kannada')
-
-# Populate vocabularies from all data
-all_df = pd.concat([train_df, valid_df, test_df], ignore_index=True)
-for _, row in all_df.iterrows():
-    source_vocab.add_sentence(str(row['latin']))
-    target_vocab.add_sentence(str(row['native']))
-2. Model Initialization
-python
-# Define hyperparameters
-INPUT_DIM = source_vocab.n_chars
-OUTPUT_DIM = target_vocab.n_chars
-ENC_EMB_DIM = 256
-DEC_EMB_DIM = 256
-HID_DIM = 512
-N_LAYERS = 2
-CELL_TYPE = 'GRU'
-ENC_DROPOUT = 0.5
-DEC_DROPOUT = 0.5
-
-# Initialize model components
-enc = Encoder(INPUT_DIM, ENC_EMB_DIM, HID_DIM, N_LAYERS, CELL_TYPE, ENC_DROPOUT)
-dec = Decoder(OUTPUT_DIM, DEC_EMB_DIM, HID_DIM, N_LAYERS, CELL_TYPE, DEC_DROPOUT)
-model = Seq2Seq(enc, dec, device).to(device)
-
-# Initialize weights uniformly
-def init_weights(m):
-    for name, param in m.named_parameters():
-        nn.init.uniform_(param.data, -0.08, 0.08)
-
-model.apply(init_weights)
-3. Training Configuration
-python
-# Training setup
-optimizer = optim.Adam(model.parameters())
-criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX)
-BATCH_SIZE = 128
+```python
+# The notebook trains automatically when run
+# Training configuration is already set in the code
 N_EPOCHS = 10
-CLIP = 1  # Gradient clipping value
+BATCH_SIZE = 128
+LEARNING_RATE = default Adam optimizer rate
+```
 
-# Create data loaders
-train_iterator = DataLoader(train_dataset, batch_size=BATCH_SIZE, 
-                           shuffle=True, collate_fn=collate_fn)
-valid_iterator = DataLoader(valid_dataset, batch_size=BATCH_SIZE, 
-                           collate_fn=collate_fn)
-4. Training Loop
-python
-for epoch in range(N_EPOCHS):
-    train_loss = train_fn(model, train_iterator, optimizer, criterion, CLIP)
-    valid_loss = evaluate_fn(model, valid_iterator, criterion)
-    
-    if valid_loss < best_valid_loss:
-        best_valid_loss = valid_loss
-        torch.save(model.state_dict(), 'best-transliteration-model.pt')
-    
-    print(f'Epoch: {epoch+1:02}/{N_EPOCHS}')
-    print(f'\tTrain Loss: {train_loss:.3f}')
-    print(f'\t Val. Loss: {valid_loss:.3f}')
-Inference
-After training, the model can be used for transliteration:​
+### Inference Example
 
-python
-# Load trained model
+```python
+# Load the trained model
 model.load_state_dict(torch.load('best-transliteration-model.pt'))
 
-def transliterate_word(model, word, source_vocab, target_vocab, device, max_len=50):
-    model.eval()
-    
-    # Convert input word to tensor
-    src_indices = [source_vocab.char2index.get(char, source_vocab.char2index['<UNK>']) 
-                   for char in word]
-    src_tensor = torch.LongTensor([SOS_IDX] + src_indices + [EOS_IDX]).unsqueeze(0).to(device)
-    
-    # Encode input
-    with torch.no_grad():
-        hidden = model.encoder(src_tensor)
-    
-    # Decode character by character
-    trg_indices = [SOS_IDX]
-    for _ in range(max_len):
-        trg_tensor = torch.LongTensor([trg_indices[-1]]).to(device)
-        
-        with torch.no_grad():
-            output, hidden = model.decoder(trg_tensor, hidden)
-        
-        pred_token = output.argmax(1).item()
-        trg_indices.append(pred_token)
-        
-        if pred_token == EOS_IDX:
-            break
-    
-    # Convert indices back to characters
-    trg_chars = [target_vocab.index2char[i] for i in trg_indices]
-    return "".join(trg_chars[1:-1])
+# Transliterate a word
+word = "namaskara"
+output = transliterate_word(model, word, source_vocab, target_vocab, device)
+print(f"Input: {word}")
+print(f"Output: {output}")
+```
 
-# Example usage
-latin_word = "namaskara"
-kannada_word = transliterate_word(model, latin_word, source_vocab, target_vocab, device)
-print(f"Latin: {latin_word} -> Kannada: {kannada_word}")
-Training Results
-The model demonstrates strong learning performance over 10 epochs:​
+## Model Details
 
-Loss Progression
-Epoch	Training Loss	Validation Loss
-1	2.313	1.650
-2	0.885	0.954
-3	0.536	0.832
-4	0.406	0.760
-5	0.337	0.732
-6	0.301	0.685
-7	0.265	0.736
-8	0.241	0.718
-9	0.223	0.694
-10	0.198	0.703
-Key Observations
-Rapid initial convergence: Training loss drops from 2.313 to 0.885 in just 2 epochs
+### Hyperparameters
 
-Best validation loss: 0.685 achieved at epoch 6
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Input Vocabulary Size | 30 | Latin character set size |
+| Output Vocabulary Size | 65 | Kannada character set size |
+| Embedding Dimension | 256 | Dense vector size for characters |
+| Hidden Dimension | 512 | GRU hidden state size |
+| Number of Layers | 2 | Stacked GRU layers |
+| Dropout | 0.5 | Regularization rate |
+| Batch Size | 128 | Training batch size |
+| Learning Rate | Adam default | Optimizer learning rate |
+| Epochs | 10 | Training iterations |
+| Gradient Clipping | 1.0 | Prevents exploding gradients |
 
-Slight overfitting: Validation loss stabilizes around 0.70 while training continues to decrease
+### Total Parameters
+**5,574,977 trainable parameters**
 
-Model selection: Best model checkpoint saved based on validation loss minimization
+## Training Process
 
-Example Predictions
-Representative test set results demonstrating model accuracy:​
+### Training Pipeline
 
-text
-Source: thodagisikolluvavaralli
-Actual: ತೊಡಗಿಸಿಕೊಳ್ಳುವವರಲ್ಲಿ
-Predicted: ತೊಡಗಿಸಿಕೊಳ್ಳುವವರಲ್ಲಿ
-✓ Perfect match
+1. **Data Preprocessing**
+   - Convert characters to indices using vocabulary mappings
+   - Add special tokens (`<sos>`, `<eos>`)
+   - Pad sequences to uniform length within batches
 
-Source: sangameshvara
-Actual: ಸಂಗಮೇಶ್ವರ
-Predicted: ಸಂಗಮೇಶ್ವರ
-✓ Perfect match
+2. **Forward Pass**
+   - Encoder processes source sequence
+   - Decoder generates target sequence
+   - Teacher forcing applied with 50% probability
 
-Source: hassan
-Actual: ಹಾಸನ್
-Predicted: ಹ್ಸನ್
-✗ Minor vowel discrepancy
+3. **Loss Calculation**
+   - CrossEntropyLoss with padding token ignored
+   - Loss computed on predicted vs actual target sequences
 
-Source: anaheim
-Actual: ಅನಾಹೈಮ್
-Predicted: ಅನಹಿಮ್
-✗ Vowel length variation
-Implementation Details
-Custom Dataset Class
-The TransliterationDataset class handles data preprocessing and tensor conversion:​
+4. **Backpropagation**
+   - Gradient computation through the network
+   - Gradient clipping to prevent exploding gradients
+   - Parameter updates using Adam optimizer
 
-python
-class TransliterationDataset(Dataset):
-    def __init__(self, df, source_vocab, target_vocab):
-        self.df = df
-        self.source_vocab = source_vocab
-        self.target_vocab = target_vocab
-    
-    def __getitem__(self, idx):
-        latin_word, native_word = self.df.iloc[idx]
-        
-        # Convert characters to indices with UNK fallback
-        src_indices = [self.source_vocab.char2index.get(char, 
-                       self.source_vocab.char2index['<UNK>']) 
-                       for char in str(latin_word)]
-        trg_indices = [self.target_vocab.char2index.get(char, 
-                       self.target_vocab.char2index['<UNK>']) 
-                       for char in str(native_word)]
-        
-        # Add SOS and EOS tokens
-        src_tensor = torch.LongTensor([SOS_IDX] + src_indices + [EOS_IDX])
-        trg_tensor = torch.LongTensor([SOS_IDX] + trg_indices + [EOS_IDX])
-        
-        return src_tensor, trg_tensor
-Padding and Batching
-Variable-length sequences are handled using PyTorch's pad_sequence function:​
+5. **Validation**
+   - Evaluate on validation set without teacher forcing
+   - Monitor validation loss for early stopping
+   - Save best model based on validation performance
 
-python
-def collate_fn(batch):
-    src_batch, trg_batch = zip(*batch)
-    
-    # Pad sequences to equal length within batch
-    src_padded = pad_sequence(src_batch, batch_first=True, padding_value=PAD_IDX)
-    trg_padded = pad_sequence(trg_batch, batch_first=True, padding_value=PAD_IDX)
-    
-    return src_padded, trg_padded
-Gradient Clipping
-To prevent exploding gradients during training:​
+### Training Progress
 
-python
-# Clip gradients to maximum norm of 1
-torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP)
-Technical Approach
-Character-Level Modeling Rationale
-This implementation uses character-level processing rather than word-level or subword approaches for several compelling reasons:​
+| Epoch | Train Loss | Validation Loss |
+|-------|-----------|----------------|
+| 1/10  | 2.313     | 1.650          |
+| 2/10  | 0.885     | 0.954          |
+| 3/10  | 0.536     | 0.832          |
+| 4/10  | 0.406     | 0.760          |
+| 5/10  | 0.337     | 0.732          |
+| 6/10  | 0.301     | 0.685          |
+| 7/10  | 0.265     | 0.736          |
+| 8/10  | 0.241     | 0.718          |
+| 9/10  | 0.223     | 0.694          |
+| 10/10 | 0.198     | 0.703          |
 
-Open vocabulary: Handles any input word without out-of-vocabulary issues
+**Best model achieved at Epoch 6 with validation loss: 0.685**
 
-Morphological flexibility: Kannada is an agglutinative language with complex word formation
+## Results
 
-Phonetic accuracy: Character-level mapping preserves phonetic nuances
+### Sample Predictions
 
-Data efficiency: Requires smaller vocabularies (30 vs. thousands for word-level)
+| Source (Latin) | Actual (Kannada) | Predicted (Kannada) | Accuracy |
+|---------------|------------------|---------------------|----------|
+| thodagisikolluvavaralli | ತೊಡಗಿಸಿಕೊಳ್ಳುವವರಲ್ಲಿ | ತೊಡಗಿಸಿಕೊಳ್ಳುವವರಲ್ಲಿ | ✓ Perfect |
+| hassan | ಹಾಸನ್ | ಹುಸನ್ | ✗ Minor error |
+| anaheim | ಅನಾಹೈಮ್ | ಅನಹಿಮ್ | ✗ Partial match |
+| sangameshvara | ಸಂಗಮೇಶ್ವರ | ಸಂಗಮೇಶ್ವರ | ✓ Perfect |
+| ninnalli | ನಿನ್ನಲ್ಲಿ | ನಿನ್ನಲ್ಲಿ | ✓ Perfect |
+| roling | ರೋಲಿಂಗ್ | ರೊಲಿಂಗ್ | ✗ Minor error |
 
-Generalization: Better handles rare words and proper nouns
+### Performance Analysis
 
-Teacher Forcing Strategy
-The model implements stochastic teacher forcing with 50% probability:​
+The model demonstrates strong performance on:
+- Common Kannada words and phonetic patterns
+- Long compound words with complex character sequences
+- Regular phonetic mappings
 
-During training: Randomly chooses between ground truth and model prediction for next input
+Areas for improvement:
+- Foreign words (e.g., "anaheim", "hassan")
+- Vowel length distinctions (ಆ vs ಅ)
+- Aspirated consonants
 
-Purpose: Balances fast convergence with exposure to model's own predictions
+## Approach and Methodology
 
-During inference: Always uses model predictions (teacher forcing ratio = 0)
+### 1. Problem Formulation
+The transliteration task is formulated as a sequence-to-sequence problem where:
+- **Input**: Variable-length sequence of Latin characters
+- **Output**: Variable-length sequence of Kannada Unicode characters
+- **Objective**: Learn the character-level mapping while preserving phonetic information
 
-Optimization Techniques
-Several techniques enhance model performance:​
+### 2. Model Architecture Selection
+**Why Seq2Seq with GRU?**
+- **Variable Length Handling**: Both input and output sequences have variable lengths
+- **Sequential Dependencies**: Character order matters in both scripts
+- **Context Preservation**: GRU maintains long-term dependencies better than simple RNNs
+- **Efficiency**: GRU is computationally lighter than LSTM while maintaining similar performance
 
-Adam optimizer: Adaptive learning rate for faster convergence
+### 3. Character-Level Modeling
+The model operates at character level rather than word level because:
+- Transliteration is fundamentally a character mapping task
+- Handles out-of-vocabulary words naturally
+- Captures phonetic patterns at granular level
+- More flexible for compound words and morphological variations
 
-Dropout (0.5): Applied in both encoder and decoder for regularization
+### 4. Training Strategy
 
-Gradient clipping: Prevents exploding gradients in RNN training
+**Teacher Forcing (50% ratio)**
+- During training, the model receives actual target characters as input with 50% probability
+- Helps model learn faster by providing correct context
+- Gradual reduction prevents over-reliance on ground truth
 
-Batch processing: 128 samples per batch for efficient GPU utilization
+**Gradient Clipping**
+- Prevents exploding gradients in deep recurrent networks
+- Ensures training stability
 
-Early stopping: Best model saved based on validation loss
+**Dropout Regularization**
+- Applied to both encoder and decoder (0.5 rate)
+- Prevents overfitting on training data
+- Improves generalization to unseen words
 
-Limitations and Future Work
-Current Limitations
-Fixed architecture: Requires retraining for different language pairs
+### 5. Vocabulary Design
+- **Special Tokens**: Handle sequence boundaries and unknown characters
+  - `<sos>`: Start of sequence marker
+  - `<eos>`: End of sequence marker
+  - `<pad>`: Padding for batch processing
+  - `<unk>`: Unknown character fallback
+- **Character-Level**: Captures all possible phonetic combinations
 
-No attention mechanism: Cannot learn alignment between long sequences
+### 6. Evaluation Methodology
+- Validation loss monitors generalization
+- Qualitative analysis on test examples
+- Best model selection based on validation performance
+- Character-level accuracy assessment
 
-Greedy decoding: May not produce globally optimal outputs
+## Limitations and Future Work
 
-Character errors: Occasional vowel length and diacritic mistakes
+### Current Limitations
 
-No beam search: Single-path decoding limits output diversity
+1. **Foreign Word Handling**
+   - Struggles with non-Kannada origin words
+   - Limited training data for such cases
 
-Potential Improvements
-Attention mechanisms: Implement Bahdanau or Luong attention for better alignment
+2. **Vowel Length Ambiguity**
+   - Difficulty distinguishing short vs long vowels (ಅ vs ಆ)
+   - Latin script doesn't always indicate length explicitly
 
-Transformer architecture: Replace RNN with self-attention for parallelization
+3. **No Attention Mechanism**
+   - Basic Seq2Seq without attention
+   - May miss long-range dependencies
 
-Beam search decoding: Explore multiple hypotheses for better results
+4. **Limited Context**
+   - No word-level or sentence-level context
+   - Purely character-based decisions
 
-Byte-pair encoding: Hybrid character-subword approach
+### Future Enhancements
 
-Transfer learning: Pre-train on multiple Indic language pairs
+1. **Add Attention Mechanism**
+   - Bahdanau or Luong attention
+   - Better handling of long sequences
+   - Interpretable alignments
 
-Evaluation metrics: Implement BLEU, character error rate (CER), word accuracy
+2. **Transformer Architecture**
+   - Replace RNN with self-attention
+   - Parallel processing capabilities
+   - State-of-the-art performance
 
-Data augmentation: Synthetic data generation for rare character combinations
+3. **Pretrained Embeddings**
+   - Use phonetic embeddings
+   - Transfer learning from related languages
+
+4. **Data Augmentation**
+   - Synthetic data generation
+   - Back-transliteration
+   - Noise injection for robustness
+
+5. **Ensemble Methods**
+   - Combine multiple models
+   - Voting or averaging predictions
+
+6. **Context Integration**
+   - Word-level context
+   - Sentence-level disambiguation
+   - Language model integration
+
+7. **Multi-task Learning**
+   - Joint training with related tasks
+   - Kannada-to-Latin transliteration
+   - Pronunciation prediction
 
